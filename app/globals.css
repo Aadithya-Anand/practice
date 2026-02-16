@@ -1,10 +1,47 @@
-body {
-  font-family: Arial, sans-serif;
-  margin: 0;
-  padding: 0;
+@import "tailwindcss";
+
+html, body {
+  height: 100%;
+}
+@keyframes roadMove {
+  0% { left: -80px; }
+  100% { left: 100%; }
 }
 
-button {
-  padding: 8px 12px;
-  cursor: pointer;
+@keyframes slowSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bounceSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-road {
+  animation: roadMove 1s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: slowSpin 1s linear infinite;
+}
+
+.animate-bounce-slow {
+  animation: bounceSlow 1.2s ease-in-out infinite;
+}
+
+/* Marker pulse - Uber-style when newly placed */
+@keyframes markerPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.4);
+  }
+}
+
+.marker-pulse {
+  animation: markerPulse 1s ease-in-out 2;
 }

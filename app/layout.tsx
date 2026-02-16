@@ -1,16 +1,16 @@
 import "./globals.css";
-import Link from "next/link";
+import { Toaster } from "@/components/ui/sonner";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body>
-        <nav style={{ padding: 10, borderBottom: "1px solid #ddd" }}>
-          <Link href="/">Home</Link> |{" "}
-          <Link href="/history">History</Link> |{" "}
-          <Link href="/profile">Profile</Link>
-        </nav>
-        {children}
+      <body className="min-h-screen bg-black antialiased">
+        <main>{children}</main>
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

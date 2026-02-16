@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// User - Auth + profile. passwordHash required for login/signup.
+// -----------------------------------------------------------------------------
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  trips Trip[]
+
+  @@index([email])
+}
+
+// -----------------------------------------------------------------------------
+// Trip - Full ride lifecycle with coordinates, pricing, status.
+// -----------------------------------------------------------------------------
+model Trip {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  pickupLat       Float
+  pickupLng       Float
+  dropLat         Float
+  dropLng         Float
+  pickupAddress    String   @default("") // Formatted building-level address
+  pickupAddressRaw Json?    // Raw Nominatim address object
+  dropAddress      String   @default("")
+  dropAddressRaw   Json?
+  distanceKm  Float
+  durationMin Float
+  fare        Float
+  vehicleType String   // MINI | SEDAN | SUV
+  status      String   @default("SEARCHING") // SEARCHING | ACCEPTED | ARRIVING | STARTED | COMPLETED | CANCELLED
+  createdAt   DateTime @default(now())
+
+  rating Rating?
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+}
+
+// -----------------------------------------------------------------------------
+// Rating - Post-trip feedback
+// -----------------------------------------------------------------------------
+model Rating {
+  id        String   @id @default(cuid())
+  tripId    String   @unique
+  stars     Int
+  createdAt DateTime @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
