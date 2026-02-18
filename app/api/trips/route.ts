@@ -5,6 +5,8 @@ import { validateAuthToken } from "@/lib/auth-store";
 import { prisma } from "@/lib/db";
 import { isValidCoordinate, calculateFare, type VehicleType } from "@/lib/pricing";
 import { validateBookingLocations } from "@/lib/validation";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { sanitizeAddress } from "@/lib/sanitize";
 
 // -----------------------------------------------------------------------------
 // Validation schemas
@@ -22,6 +24,9 @@ const createTripSchema = z.object({
   durationMin: z.number().min(0),
   fare: z.number().min(0),
   vehicleType: z.enum(["MINI", "SEDAN", "SUV"]),
+  rideNotes: z.string().max(500).optional(),
+  scheduledAt: z.union([z.string(), z.null()]).optional(),
+  promoCode: z.string().max(50).optional(),
 });
 
 // -----------------------------------------------------------------------------
@@ -36,6 +41,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { allowed, retryAfter } = checkRateLimit(`trips:${user.id}`);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: retryAfter ? { "Retry-After": String(retryAfter) } : undefined }
+      );
+    }
+
     const body = await request.json().catch(() => null);
     if (body == null || typeof body !== "object") {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
@@ -44,26 +57,24 @@ export async function POST(request: Request) {
     try {
       parsed = createTripSchema.safeParse(body);
     } catch (parseErr) {
-      console.error("[POST /api/trips] Parse error:", parseErr);
+      const { logApiError } = await import("@/lib/logger");
+      logApiError("POST /api/trips", parseErr, { phase: "parse" });
       return NextResponse.json(
         { error: "Invalid trip data" },
         { status: 400 }
       );
     }
     if (!parsed.success) {
-      let details: unknown = [];
-      try {
-        details = parsed.error?.flatten?.() ?? parsed.error?.errors ?? [];
-      } catch {
-        details = parsed.error?.errors ?? [];
-      }
+      const details = "issues" in parsed.error ? (parsed.error as { issues: unknown[] }).issues : [];
       return NextResponse.json(
         { error: "Invalid trip data", details },
         { status: 400 }
       );
     }
 
-    const { pickupLat, pickupLng, dropLat, dropLng, pickupAddress, dropAddress, pickupAddressRaw, dropAddressRaw, distanceKm, durationMin, fare, vehicleType } = parsed.data;
+    const { pickupLat, pickupLng, dropLat, dropLng, pickupAddressRaw, dropAddressRaw, distanceKm, durationMin, fare, vehicleType, rideNotes, scheduledAt, promoCode } = parsed.data;
+    const pickupAddress = sanitizeAddress(parsed.data.pickupAddress);
+    const dropAddress = sanitizeAddress(parsed.data.dropAddress);
 
     const validation = validateBookingLocations(
       pickupLat,
@@ -95,7 +106,8 @@ export async function POST(request: Request) {
     const validatedFare = Math.min(fare, serverFare.totalFare * 1.1); // Allow 10% tolerance
 
     if (!prisma.trip) {
-      console.error("[POST /api/trips] prisma.trip is undefined. Run: npx prisma generate");
+      const { logApiError } = await import("@/lib/logger");
+      logApiError("POST /api/trips", new Error("prisma.trip undefined"), { hint: "Run npx prisma generate" });
       return NextResponse.json(
         { error: "Database not configured. Run: npx prisma generate && npx prisma migrate dev" },
         { status: 500 }
@@ -118,12 +130,16 @@ export async function POST(request: Request) {
         fare: validatedFare,
         vehicleType,
         status: "SEARCHING",
+        rideNotes: rideNotes || undefined,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+        promoCode: promoCode || undefined,
       },
     });
 
     return NextResponse.json({ trip }, { status: 201 });
   } catch (err) {
-    console.error("[POST /api/trips]", err);
+    const { logApiError } = await import("@/lib/logger");
+    logApiError("POST /api/trips", err);
     const message = err instanceof Error ? err.message : "Failed to create trip";
     return NextResponse.json(
       { error: process.env.NODE_ENV === "development" ? message : "Failed to create trip" },
@@ -152,7 +168,8 @@ export async function GET() {
 
     return NextResponse.json({ trips });
   } catch (err) {
-    console.error("[GET /api/trips]", err);
+    const { logApiError } = await import("@/lib/logger");
+    logApiError("GET /api/trips", err);
     return NextResponse.json(
       { error: "Failed to fetch trips" },
       { status: 500 }

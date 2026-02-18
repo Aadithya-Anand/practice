@@ -45,3 +45,9 @@ html, body {
 .marker-pulse {
   animation: markerPulse 1s ease-in-out 2;
 }
+
+/* Map rounded corners - clip Leaflet to parent */
+.overflow-hidden .leaflet-container {
+  border-radius: inherit;
+  overflow: hidden;
+}

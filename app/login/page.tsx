@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Loader2,
   ChevronRight,
@@ -35,6 +36,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [hovering, setHovering] = useState(false);
   const router = useRouter();
+  const { refetch } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,6 +51,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -58,7 +61,7 @@ export default function LoginPage() {
       }
 
       const data = (await res.json()) as {
-        user: { id: string; email: string };
+        user: { id: string; email: string; role?: string };
       };
 
       // Optionally store basic user info for UI; auth is cookie-based.
@@ -66,10 +69,11 @@ export default function LoginPage() {
         localStorage.setItem("user", JSON.stringify(data.user));
       }
 
+      await refetch();
       toast.success("Welcome back 🚗", {
         description: "You are now logged in to Vandi.",
       });
-      router.push("/book");
+      router.push(data.user?.role === "driver" ? "/driver" : "/book");
     } catch {
       toast.error("Something went wrong");
     } finally {
@@ -200,13 +204,23 @@ export default function LoginPage() {
             </form>
           </Form>
 
-          <div className="mt-8 text-center text-sm text-white">
-            <Link href="/signup" className="hover:text-orange-400">
-              Not registered?{" "}
-              <span className="text-orange-500 underline">
-                Enroll in fleet
-              </span>
-            </Link>
+          <div className="mt-8 space-y-2 text-center text-sm text-white">
+            <p>
+              <Link href="/signup" className="hover:text-orange-400">
+                Not registered?{" "}
+                <span className="text-orange-500 underline">
+                  Enroll in fleet
+                </span>
+              </Link>
+            </p>
+            <p>
+              <Link href="/driver/signup" className="hover:text-orange-400">
+                Want to drive?{" "}
+                <span className="text-orange-500 underline">
+                  Sign up as driver
+                </span>
+              </Link>
+            </p>
           </div>
         </motion.div>
 

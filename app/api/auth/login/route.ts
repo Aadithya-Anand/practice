@@ -43,11 +43,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const token = createAuthToken(user.id, user.email);
+  const token = createAuthToken(user.id, user.email, user.role);
 
   const res = NextResponse.json(
     {
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, role: user.role },
     },
     { status: 200 },
   );

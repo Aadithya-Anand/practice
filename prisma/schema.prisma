@@ -8,18 +8,42 @@ datasource db {
 }
 
 // -----------------------------------------------------------------------------
-// User - Auth + profile. passwordHash required for login/signup.
+// User - Auth + profile. role: rider (default) or driver.
 // -----------------------------------------------------------------------------
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   name         String?
   passwordHash String
+  role         String   @default("rider") // rider | driver
   createdAt    DateTime @default(now())
 
-  trips Trip[]
+  trips       Trip[]         @relation("RiderTrips")
+  driverTrips Trip[]         @relation("DriverTrips")
+  driverProfile DriverProfile?
 
   @@index([email])
+  @@index([role])
+}
+
+// -----------------------------------------------------------------------------
+// DriverProfile - Vehicle and availability for drivers
+// -----------------------------------------------------------------------------
+model DriverProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  phone         String?
+  vehicleType   String   // MINI | SEDAN | SUV
+  vehicleNumber String
+  licenseNumber String
+  isOnline      Boolean  @default(false)
+  rating        Float    @default(5)
+  createdAt     DateTime @default(now())
+
+  @@index([isOnline])
+  @@index([vehicleType])
 }
 
 // -----------------------------------------------------------------------------
@@ -28,7 +52,9 @@ model User {
 model Trip {
   id          String   @id @default(cuid())
   userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user        User?    @relation("RiderTrips", fields: [userId], references: [id], onDelete: SetNull)
+  driverId    String?
+  driver      User?    @relation("DriverTrips", fields: [driverId], references: [id], onDelete: SetNull)
   pickupLat       Float
   pickupLng       Float
   dropLat         Float
@@ -42,11 +68,15 @@ model Trip {
   fare        Float
   vehicleType String   // MINI | SEDAN | SUV
   status      String   @default("SEARCHING") // SEARCHING | ACCEPTED | ARRIVING | STARTED | COMPLETED | CANCELLED
+  rideNotes   String?  // Optional notes for driver
+  scheduledAt DateTime? // For scheduled rides
+  promoCode   String?  // Applied promo code
   createdAt   DateTime @default(now())
 
   rating Rating?
 
   @@index([userId])
+  @@index([driverId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
 }

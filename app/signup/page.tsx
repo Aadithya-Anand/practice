@@ -48,11 +48,13 @@ export default function SignupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
+        credentials: "include",
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        toast.error(data?.error ?? "Could not create account");
+        const msg = data?.details ? `${data.error} (${data.details})` : (data?.error ?? "Could not create account");
+        toast.error(msg);
         return;
       }
 

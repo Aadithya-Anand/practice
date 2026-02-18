@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { Providers } from "@/components/Providers";
 
 export default function RootLayout({
   children,
@@ -9,8 +10,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-black antialiased">
-        <main>{children}</main>
-        <Toaster position="top-center" richColors />
+        <Providers>
+          <main>{children}</main>
+          <Toaster position="top-center" richColors />
+        </Providers>
       </body>
     </html>
   );

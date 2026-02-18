@@ -197,6 +197,7 @@ export default function MapContent({
       zoom={13}
       className="relative z-0 h-full w-full"
       scrollWheelZoom={true}
+      aria-label="Interactive map for selecting pickup and drop locations"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

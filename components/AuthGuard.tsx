@@ -1,30 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const { user, loading, error } = useAuth();
 
   useEffect(() => {
-    fetch("/api/me")
-      .then((res) => {
-        if (!res.ok) {
-          router.replace("/login");
-          return;
-        }
-        setReady(true);
-      })
-      .catch(() => router.replace("/login"));
-  }, [router]);
+    if (loading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (error) {
+      router.replace("/login");
+    }
+  }, [user, loading, error, router]);
 
-  if (!ready) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black">
+        <Skeleton className="h-12 w-48" />
+        <Skeleton className="h-4 w-32" />
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return <>{children}</>;

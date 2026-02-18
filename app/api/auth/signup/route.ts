@@ -42,9 +42,21 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "User already exists") {
+      return NextResponse.json(
+        { error: "Account already exists with this email" },
+        { status: 400 },
+      );
+    }
+    console.error("[POST /api/auth/signup]", err);
+    const devError = process.env.NODE_ENV === "development" ? message : undefined;
     return NextResponse.json(
-      { error: "Account already exists with this email" },
-      { status: 400 },
+      {
+        error: "Could not create account. Please try again.",
+        ...(devError && { details: devError }),
+      },
+      { status: 500 },
     );
   }
 }

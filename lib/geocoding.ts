@@ -95,6 +95,9 @@ function formatBuildingAddress(addr: NominatimAddress): string {
   return parts.length > 0 ? parts.join(", ") : "";
 }
 
+/** Exported for testing */
+export { formatBuildingAddress };
+
 /**
  * Reverse geocode - convert lat/lng to building-level address
  * zoom=18 for building precision

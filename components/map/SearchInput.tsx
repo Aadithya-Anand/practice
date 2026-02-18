@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useDebounce } from "@/hooks/useDebounce";
-import { useLocationSearch, type ForwardGeocodeResult } from "@/hooks/useLocationSearch";
+import { useLocationSearchContext } from "@/contexts/LocationSearchContext";
+import type { ForwardGeocodeResult } from "@/lib/geocoding";
 import { Building2, MapPin } from "lucide-react";
 
 const DEBOUNCE_MS = 300;
@@ -40,7 +42,7 @@ export default function SearchInput({
   variant = "default",
 }: SearchInputProps) {
   const [showDropdown, setShowDropdown] = useState(false);
-  const { suggestions, loading, isWeakMatch, isEmpty, search, clear } = useLocationSearch();
+  const { suggestions, loading, isWeakMatch, isEmpty, search, clear } = useLocationSearchContext();
 
   const debouncedValue = useDebounce(value, DEBOUNCE_MS);
 
@@ -48,10 +50,9 @@ export default function SearchInput({
     if (debouncedValue && debouncedValue.length >= 3) {
       search(debouncedValue);
       setShowDropdown(true);
-    } else {
-      clear();
     }
-  }, [debouncedValue, search, clear]);
+    // Don't clear on empty - shared context; other input may still need suggestions
+  }, [debouncedValue, search]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,12 +80,15 @@ export default function SearchInput({
     [onChange, onSelect, clear]
   );
 
-  const borderColor =
+  const focusRing =
     variant === "pickup"
-      ? "border-green-500/60 focus:border-green-500"
+      ? "focus:border-green-500/80 focus:ring-2 focus:ring-green-500/20"
       : variant === "drop"
-        ? "border-blue-500/60 focus:border-blue-500"
-        : "border-zinc-600 focus:border-orange-500";
+        ? "focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20"
+        : "focus:border-orange-500/80 focus:ring-2 focus:ring-orange-500/20";
+
+  const showSuggestions = showDropdown && suggestions.length > 0;
+  const showEmpty = showDropdown && isEmpty && debouncedValue.length >= 3 && !loading;
 
   return (
     <div className="relative w-full">
@@ -92,11 +96,15 @@ export default function SearchInput({
         type="text"
         value={value}
         onChange={handleInputChange}
-        onFocus={() => (suggestions.length > 0 || loading) && setShowDropdown(true)}
+        onFocus={() => (suggestions.length > 0 || loading || debouncedValue.length >= 3) && setShowDropdown(true)}
         onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
         placeholder={placeholder}
         disabled={disabled}
-        className={`w-full rounded-lg border bg-zinc-800 px-4 py-2.5 pl-10 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 ${borderColor}`}
+        aria-label={variant === "pickup" ? "Pickup location search" : variant === "drop" ? "Drop location search" : "Location search"}
+        aria-autocomplete="list"
+        aria-expanded={showSuggestions}
+        aria-controls="location-suggestions"
+        className={`w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-3 pl-10 text-white placeholder:text-zinc-500 transition-all duration-200 focus:outline-none ${focusRing}`}
       />
       <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 pointer-events-none" />
       {loading && (
@@ -105,51 +113,66 @@ export default function SearchInput({
         </span>
       )}
 
-      {showDropdown && suggestions.length > 0 && (
-        <div
-          className="absolute top-full left-0 z-[9999] mt-1 w-full overflow-hidden rounded-xl border border-zinc-600 bg-zinc-800 shadow-xl"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {isWeakMatch && (
-            <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-              No exact building found. Showing nearby area.
-            </div>
-          )}
-          <ul
-            className="max-h-48 overflow-auto py-1"
-            role="listbox"
+      <AnimatePresence>
+        {showSuggestions && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full left-0 right-0 z-[9999] mt-2 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl ring-1 ring-zinc-800"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
-          {suggestions.map((result) => (
-            <li
-              key={result.placeId}
-              role="option"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleSelect(result);
-              }}
-              className="flex cursor-pointer items-start gap-2 px-4 py-2 text-sm text-white hover:bg-zinc-700"
+            {isWeakMatch && (
+              <div className="border-b border-amber-500/30 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-400">
+                No exact building found. Showing nearby area.
+              </div>
+            )}
+            <ul
+              id="location-suggestions"
+              className="max-h-52 overflow-auto py-1"
+              role="listbox"
+              aria-label="Location suggestions"
             >
-              {hasBuilding(result) ? (
-                <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
-              ) : (
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
-              )}
-              <span className="flex-1">{result.formattedAddress}</span>
-            </li>
-          ))}
-          </ul>
-        </div>
-      )}
+              {suggestions.map((result, i) => (
+                <motion.li
+                  key={result.placeId}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.02 }}
+                  role="option"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelect(result);
+                  }}
+                  className="flex cursor-pointer items-start gap-3 px-4 py-3 text-sm text-zinc-200 transition-colors hover:bg-zinc-800/80"
+                >
+                  {hasBuilding(result) ? (
+                    <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
+                  ) : (
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
+                  )}
+                  <span className="flex-1 break-words">{result.formattedAddress}</span>
+                </motion.li>
+              ))}
+            </ul>
+          </motion.div>
+        )}
 
-      {showDropdown && isEmpty && debouncedValue.length >= 3 && !loading && (
-        <div
-          className="absolute top-full left-0 z-[9999] mt-1 w-full rounded-xl border border-zinc-600 bg-zinc-800 px-4 py-3 text-sm text-zinc-400"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          No results. Try a different search or click on the map.
-        </div>
-      )}
+        {showEmpty && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full left-0 right-0 z-[9999] mt-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-4 text-sm text-zinc-400 shadow-2xl ring-1 ring-zinc-800"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            No results. Try a different search or click on the map.
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

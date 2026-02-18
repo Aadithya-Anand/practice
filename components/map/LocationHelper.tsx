@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 
 export interface LocationHelperProps {
@@ -33,23 +34,35 @@ export default function LocationHelper({
     <div className="space-y-2">
       {/* Top-left: loading indicator when adjusting */}
       {isAdjusting && (
-        <div className="absolute left-4 top-4 z-10 rounded-lg bg-zinc-900/90 px-3 py-2 text-xs text-zinc-300">
+        <motion.div
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="absolute left-4 top-4 z-10 rounded-lg bg-zinc-900/90 px-3 py-2 text-xs text-zinc-300"
+        >
           Adjusting location...
-        </div>
+        </motion.div>
       )}
 
       {/* Top-right: badges */}
       <div className="absolute right-4 top-4 z-10 flex flex-col gap-2">
         {showSavedBadge && (
-          <div className="flex items-center gap-1.5 rounded-lg border border-green-500/40 bg-zinc-900/90 px-3 py-2 text-xs text-green-400">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-1.5 rounded-lg border border-green-500/40 bg-zinc-900/90 px-3 py-2 text-xs text-green-400"
+          >
             <CheckCircle2 className="h-3.5 w-3.5" />
             Precise location saved
-          </div>
+          </motion.div>
         )}
         {showPrecisionBadge && !showSavedBadge && (
-          <div className="rounded-lg border border-green-500/40 bg-zinc-900/90 px-3 py-2 text-xs text-green-400">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="rounded-lg border border-green-500/40 bg-zinc-900/90 px-3 py-2 text-xs text-green-400"
+          >
             Building-level precision
-          </div>
+          </motion.div>
         )}
       </div>
 
